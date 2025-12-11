@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Lower thirds Source</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@700;900&family=Open+Sans:wght@400;700&family=Oswald:wght@500;700&family=Playfair+Display:ital,wght@0,600;1,400&family=Poppins:wght@300;400;600&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: transparent; }
+
+        .lower-third {
+            position: fixed; bottom: 100px; display: flex; align-items: center; gap: 15px;
+            opacity: 0; transform: translateX(-100%);
+        }
+        .lower-third.left { left: 50px; }
+
+        /* Styles for Transitions (Mantidos) */
+        .lower-third.transition-slide.animation-in { animation: slideInLeft var(--anim-in-duration, 0.8s) cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        .lower-third.transition-slide.animation-out { animation: slideOutLeft var(--anim-out-duration, 0.6s) cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards; }
+        @keyframes slideInLeft { to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideOutLeft { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(-100%); } }
+
+        /* Bounce */
+        .lower-third.transition-bounce.animation-in { animation: bounceIn var(--anim-in-duration, 1s) cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .lower-third.transition-bounce.animation-out { animation: bounceOut var(--anim-out-duration, 0.5s) ease-in forwards; }
+        @keyframes bounceIn { 0% { opacity: 0; transform: translateX(-100%) scale(0.3); } 50% { opacity: 1; transform: translateX(10%) scale(1.05); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+        @keyframes bounceOut { from { opacity: 1; transform: translateX(0) scale(1); } to { opacity: 0; transform: translateX(-100%) scale(0.8); } }
+
+        /* Fade */
+        .lower-third.transition-fade.animation-in { animation: fadeScaleIn var(--anim-in-duration, 0.7s) ease-out forwards; }
+        .lower-third.transition-fade.animation-out { animation: fadeScaleOut var(--anim-out-duration, 0.5s) ease-in forwards; }
+        @keyframes fadeScaleIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeScaleOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.5); } }
+        
+        /* Swing */
+        .lower-third.transition-swing.animation-in { transform-origin: top left; animation: swingIn var(--anim-in-duration, 0.9s) cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .lower-third.transition-swing.animation-out { animation: swingOut var(--anim-out-duration, 0.6s) ease-in forwards; }
+        @keyframes swingIn { 0% { opacity: 0; transform: rotateZ(-10deg) translateX(-100%); } 100% { opacity: 1; transform: rotateZ(0) translateX(0); } }
+        @keyframes swingOut { from { opacity: 1; transform: rotateZ(0) translateX(0); } to { opacity: 0; transform: rotateZ(-10deg) translateX(-100%); } }
+
+        /* Flip */
+        .lower-third.transition-flip.animation-in { animation: flipIn var(--anim-in-duration, 0.8s) ease-out forwards; }
+        .lower-third.transition-flip.animation-out { animation: flipOut var(--anim-out-duration, 0.6s) ease-in forwards; }
+        @keyframes flipIn { from { opacity: 0; transform: perspective(400px) rotateY(90deg) translateX(-50%); } to { opacity: 1; transform: perspective(400px) rotateY(0) translateX(0); } }
+        @keyframes flipOut { from { opacity: 1; transform: perspective(400px) rotateY(0) translateX(0); } to { opacity: 0; transform: perspective(400px) rotateY(-90deg) translateX(-50%); } }
+
+        /* Elastic */
+        .lower-third.transition-elastic.animation-in { animation: elasticIn var(--anim-in-duration, 1.2s) cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .lower-third.transition-elastic.animation-out { animation: elasticOut var(--anim-out-duration, 0.7s) ease-in forwards; }
+        @keyframes elasticIn { 0% { opacity: 0; transform: translateX(-100%) scaleX(0.3); } 40% { opacity: 1; transform: translateX(5%) scaleX(1.1); } 60% { transform: translateX(-2%) scaleX(0.95); } 80% { transform: translateX(1%) scaleX(1.02); } 100% { opacity: 1; transform: translateX(0) scaleX(1); } }
+        @keyframes elasticOut { from { opacity: 1; transform: translateX(0) scaleX(1); } to { opacity: 0; transform: translateX(-100%) scaleX(0.5); } }
+
+        /* Zoom */
+        .lower-third.transition-zoom.animation-in { animation: zoomIn var(--anim-in-duration, 0.6s) cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .lower-third.transition-zoom.animation-out { animation: zoomOut var(--anim-out-duration, 0.5s) ease-in forwards; }
+        @keyframes zoomIn { from { opacity: 0; transform: translateX(-50%) scale(0); } to { opacity: 1; transform: translateX(0) scale(1); } }
+        @keyframes zoomOut { from { opacity: 1; transform: translateX(0) scale(1); } to { opacity: 0; transform: scale(0) translateX(-50%); } }
+
+        /* Rotate */
+        .lower-third.transition-rotate.animation-in { transform-origin: left center; animation: rotateIn var(--anim-in-duration, 0.8s) cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .lower-third.transition-rotate.animation-out { animation: rotateOut var(--anim-out-duration, 0.6s) ease-in forwards; }
+        @keyframes rotateIn { from { opacity: 0; transform: translateX(-100%) rotate(-360deg); } to { opacity: 1; transform: translateX(0) rotate(0deg); } }
+        @keyframes rotateOut { from { opacity: 1; transform: translateX(0) rotate(0deg); } to { opacity: 0; transform: translateX(-100%) rotate(360deg); } }
+
+        /* Wave */
+        .lower-third.transition-wave.animation-in { animation: waveIn var(--anim-in-duration, 1s) ease-out forwards; }
+        .lower-third.transition-wave.animation-out { animation: waveOut var(--anim-out-duration, 0.7s) ease-in forwards; }
+        @keyframes waveIn { 0% { opacity: 0; transform: translateX(-100%) translateY(0); } 25% { transform: translateX(-50%) translateY(-20px); } 50% { transform: translateX(-25%) translateY(10px); } 75% { transform: translateX(-10%) translateY(-5px); } 100% { opacity: 1; transform: translateX(0) translateY(0); } }
+        @keyframes waveOut { 0% { opacity: 1; transform: translateY(0); } 50% { transform: translateY(-15px); } 100% { opacity: 0; transform: translateX(-100%) translateY(0); } }
+
+        /* Glitch */
+        .lower-third.transition-glitch.animation-in { animation: glitchIn var(--anim-in-duration, 0.8s) steps(5) forwards; }
+        .lower-third.transition-glitch.animation-out { animation: glitchOut var(--anim-out-duration, 0.6s) steps(4) forwards; }
+        @keyframes glitchIn { 0% { opacity: 0; transform: translateX(-100%) skew(0deg); } 20% { opacity: 0.5; transform: translateX(-60%) skew(10deg); clip-path: inset(20% 0 30% 0); } 40% { opacity: 0.7; transform: translateX(-40%) skew(-8deg); clip-path: inset(40% 0 10% 0); } 60% { opacity: 0.9; transform: translateX(-20%) skew(5deg); clip-path: inset(10% 0 50% 0); } 80% { opacity: 1; transform: translateX(-5%) skew(-3deg); } 100% { opacity: 1; transform: translateX(0) skew(0deg); clip-path: inset(0 0 0 0); } }
+        @keyframes glitchOut { 0% { opacity: 1; transform: skew(0deg); } 25% { transform: translateX(-20%) skew(5deg); clip-path: inset(30% 0 20% 0); } 50% { transform: translateX(-50%) skew(-8deg); clip-path: inset(10% 0 40% 0); } 75% { opacity: 0.5; transform: translateX(-80%) skew(10deg); } 100% { opacity: 0; transform: translateX(-100%) skew(0deg); } }
+
+        /* Curtain */
+        .lower-third.transition-curtain.animation-in { animation: curtainIn var(--anim-in-duration, 0.9s) cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards; }
+        .lower-third.transition-curtain.animation-out { animation: curtainOut var(--anim-out-duration, 0.7s) ease-in forwards; }
+        @keyframes curtainIn { 0% { opacity: 0; transform: translateX(-100%) scaleX(0); transform-origin: left center; } 50% { opacity: 1; transform: translateX(-10%) scaleX(1.1); } 100% { opacity: 1; transform: translateX(0) scaleX(1); } }
+        @keyframes curtainOut { 0% { opacity: 1; transform: translateX(0) scaleX(1); transform-origin: right center; } 100% { opacity: 0; transform: translateX(-100%) scaleX(0); transform-origin: left center; } }
+
+        /* Scroll */
+        .lower-third.transition-scroll.animation-in { animation: scrollIn var(--anim-in-duration, 0.8s) cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+        .lower-third.transition-scroll.animation-out { animation: scrollOut var(--anim-out-duration, 0.6s) cubic-bezier(0.5, 0, 0.75, 0) forwards; }
+        @keyframes scrollIn { 0% { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-20px); } 100% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); } }
+        @keyframes scrollOut { 0% { opacity: 1; clip-path: inset(0 0 0 0); transform: translateX(0); } 100% { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateX(-20px); } }
+
+        /* Content Styling Updated */
+        .content-box {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(147, 51, 234, 0.95));
+            padding: 15px 30px;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            min-width: 300px;
+            display: flex; /* Flexbox para alinhar logo e texto */
+            align-items: center;
+            transition: background 0.3s ease;
+        }
+
+        .logo-container {
+            margin-right: 20px;
+            display: none; /* Escondido por padrão, JS ativa se tiver logo */
+        }
+        
+        .logo-img {
+            max-height: 80px;
+            width: auto;
+            border-radius: 4px;
+            object-fit: contain;
+        }
+
+        .text-container {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .name {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 5px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.5);
+            font-family: 'Montserrat', sans-serif;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .info {
+            font-size: 20px;
+            font-weight: 300;
+            color: #fbbf24;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.4);
+            font-family: 'Poppins', sans-serif;
+            font-style: italic;
+            letter-spacing: 0.5px;
+            line-height: 1.2;
+        }
+
+        .hide-anim { display: none !important; }
+        .typewriter-cursor { display: inline-block; width: 3px; height: 1em; background-color: currentColor; margin-left: 3px; animation: blink 0.7s infinite; vertical-align: text-bottom; }
+        @keyframes blink { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0; } }
+    </style>
+</head>
+
+<body>
+    <div id="lower-third-1" class="lower-third left transition-slide hide-anim">
+        <div class="content-box">
+            <div class="logo-container" id="logo-container-1"><img class="logo-img" id="logo-img-1" src="" /></div>
+            <div class="text-container">
+                <div class="name" id="name-1"></div>
+                <div class="info" id="info-1"></div>
+            </div>
+        </div>
+    </div>
+    <div id="lower-third-2" class="lower-third left transition-bounce hide-anim">
+        <div class="content-box">
+             <div class="logo-container" id="logo-container-2"><img class="logo-img" id="logo-img-2" src="" /></div>
+             <div class="text-container">
+                <div class="name" id="name-2"></div>
+                <div class="info" id="info-2"></div>
+            </div>
+        </div>
+    </div>
+    <div id="lower-third-3" class="lower-third left transition-elastic hide-anim">
+        <div class="content-box">
+             <div class="logo-container" id="logo-container-3"><img class="logo-img" id="logo-img-3" src="" /></div>
+             <div class="text-container">
+                <div class="name" id="name-3"></div>
+                <div class="info" id="info-3"></div>
+            </div>
+        </div>
+    </div>
+    <div id="lower-third-4" class="lower-third left transition-flip hide-anim">
+        <div class="content-box">
+             <div class="logo-container" id="logo-container-4"><img class="logo-img" id="logo-img-4" src="" /></div>
+             <div class="text-container">
+                <div class="name" id="name-4"></div>
+                <div class="info" id="info-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const channel = new BroadcastChannel('obs-lower-thirds-control');
+
+        channel.onmessage = function (event) {
+            const data = event.data;
+            if (data.action === 'show') {
+                showLowerThird(data);
+            } else if (data.action === 'hide') {
+                hideLowerThird(data.id, data.animOut);
+            }
+        };
+
+        function showLowerThird(data) {
+            const id = data.id;
+            const element = document.getElementById(`lower-third-${id}`);
+            const nameEl = document.getElementById(`name-${id}`);
+            const infoEl = document.getElementById(`info-${id}`);
+            const contentBox = element.querySelector('.content-box');
+            const logoContainer = document.getElementById(`logo-container-${id}`);
+            const logoImg = document.getElementById(`logo-img-${id}`);
+
+            // Apply Fonts
+            nameEl.style.fontFamily = data.fontName ? `'${data.fontName}', sans-serif` : 'Montserrat, sans-serif';
+            infoEl.style.fontFamily = data.fontInfo ? `'${data.fontInfo}', sans-serif` : 'Poppins, sans-serif';
+
+            // Apply Logo
+            if (data.logo) {
+                logoImg.src = data.logo;
+                logoContainer.style.display = 'block';
+            } else {
+                logoContainer.style.display = 'none';
+                logoImg.src = '';
+            }
+
+            // Apply background
+            contentBox.style.background = data.background;
+            if (data.background === 'transparent') {
+                contentBox.style.border = '2px solid rgba(255, 255, 255, 0.3)';
+                contentBox.style.backdropFilter = 'blur(10px)';
+            } else {
+                contentBox.style.border = '2px solid rgba(255, 255, 255, 0.1)';
+            }
+
+            // Animations and Timings
+            element.dataset.animOut = data.animOut;
+            element.style.setProperty('--anim-in-duration', `${data.animIn}s`);
+            element.style.setProperty('--anim-out-duration', `${data.animOut}s`);
+
+            // Reset classes
+            element.className = `lower-third left transition-${data.transition}`;
+            element.classList.add('animation-in');
+
+            // Handle typewriter or plain text
+            if (data.typewriter) {
+                nameEl.innerHTML = '';
+                infoEl.innerHTML = '';
+                typewriterEffect(nameEl, data.name, () => {
+                    typewriterEffect(infoEl, data.info);
+                });
+            } else {
+                nameEl.textContent = data.name;
+                infoEl.textContent = data.info;
+            }
+        }
+
+        function typewriterEffect(element, text, callback) {
+            let index = 0;
+            const cursor = document.createElement('span');
+            cursor.className = 'typewriter-cursor';
+            element.appendChild(cursor);
+
+            const timer = setInterval(() => {
+                if (index < text.length) {
+                    const textNode = document.createTextNode(text.charAt(index));
+                    element.insertBefore(textNode, cursor);
+                    index++;
+                } else {
+                    clearInterval(timer);
+                    setTimeout(() => {
+                        if (cursor.parentNode) cursor.remove();
+                        if (callback) callback();
+                    }, 500);
+                }
+            }, 50 + Math.random() * 50); // Slightly faster typing
+        }
+
+        function hideLowerThird(id, animOut) {
+            const element = document.getElementById(`lower-third-${id}`);
+            element.classList.remove('animation-in');
+            void element.offsetWidth; // Trigger reflow
+
+            if (animOut) element.style.setProperty('--anim-out-duration', `${animOut}s`);
+            element.classList.add('animation-out');
+
+            const duration = animOut || parseFloat(element.style.getPropertyValue('--anim-out-duration')) || 0.7;
+            setTimeout(() => {
+                element.classList.add('hide-anim');
+                element.classList.remove('animation-out');
+            }, (duration * 1000) + 50);
+        }
+        console.log('OBS Lower Thirds Source Ready');
+    </script>
+</body>
+</html>

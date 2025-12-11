@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Control - GC & Holyrics</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            color: #ffffff;
+            padding: 10px;
+            min-height: 100vh;
+            font-size: 11px;
+        }
+        .container { max-width: 1800px; margin: 0 auto; }
+        h1 {
+            text-align: center; margin-bottom: 10px; font-size: 20px;
+            background: linear-gradient(135deg, #3b82f6, #9333ea);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        }
+        
+        /* Sections */
+        .control-section {
+            background: rgba(255, 255, 255, 0.03); border-radius: 8px; padding: 10px;
+            margin-bottom: 15px; border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .section-header {
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+            padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .section-title { font-size: 14px; font-weight: 700; color: #a78bfa; display: flex; align-items: center; gap: 8px; }
+        .collapse-icon { transition: transform 0.3s; }
+        .collapse-icon.open { transform: rotate(180deg); }
+        .section-content { display: none; }
+        .section-content.open { display: block; animation: fadeIn 0.3s; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Global & Layout */
+        .global-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-bottom: 8px; }
+        .global-group { display: flex; flex-direction: column; gap: 4px; }
+        
+        /* Panels Grid */
+        .panels-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px; margin-bottom: 10px; }
+        .lower-third-panel {
+            background: rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Forms */
+        label { display: block; margin-bottom: 3px; font-weight: 500; color: #d1d5db; font-size: 10px; }
+        input[type="text"], input[type="number"], input[type="color"], input[type="range"], select, input[type="file"], textarea {
+            width: 100%; padding: 6px; background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 4px; color: #ffffff;
+            font-size: 11px; transition: all 0.3s; font-family: inherit;
+        }
+        textarea { resize: vertical; min-height: 60px; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #3b82f6; background: rgba(0, 0, 0, 0.5); }
+        select option { background: #2d2d2d; color: #ffffff; }
+
+        /* Bible Specific */
+        .bible-control-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; }
+        .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #555; margin-right: 5px; }
+        .status-dot.connected { background: #10b981; box-shadow: 0 0 5px #10b981; }
+        .status-dot.error { background: #ef4444; }
+        .status-dot.waiting { background: #f59e0b; animation: pulse 1s infinite; }
+
+        /* Buttons */
+        .button-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+        button {
+            padding: 8px 12px; border: none; border-radius: 4px; font-size: 11px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .btn-show { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+        .btn-hide { background: linear-gradient(135deg, #ef4444, #dc2626); color: white; }
+        .btn-clear { background: linear-gradient(135deg, #6b7280, #4b5563); color: white; }
+        .btn-action { background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; width: 100%; margin-top: 5px; }
+        .btn-monitor { background: #4b5563; color: #aaa; width: 100%; margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;}
+        .btn-monitor.active { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; animation: pulse-border 2s infinite; }
+        
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
+        
+        .error-box {
+            display: none;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #fca5a5;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 4px;
+            font-size: 10px;
+        }
+        
+        .debug-info {
+            font-size: 9px; color: #666; margin-top: 2px;
+        }
+
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* Misc */
+        .status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 5px; }
+        .status-active { background: #10b981; box-shadow: 0 0 5px #10b981; }
+        .status-inactive { background: #6b7280; }
+        .settings-toggle { cursor: pointer; font-size: 10px; color: #a78bfa; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+        .settings-content { max-height: 0; overflow: hidden; transition: max-height 0.3s; }
+        .settings-content.open { max-height: 800px; }
+        .logo-preview { max-width: 100px; max-height: 40px; margin-top: 5px; display: none; border: 1px solid #555; }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>OBS Studio Controller</h1>
+
+        <!-- GLOBAL SETTINGS -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('global-content')">
+                <div class="section-title">🌐 Configurações GC (Lower Thirds)</div>
+                <span class="collapse-icon" id="icon-global-content">▼</span>
+            </div>
+            <div class="section-content" id="global-content">
+                <div class="global-row">
+                    <div class="global-group">
+                        <label>Intervalo Auto (s)</label>
+                        <input type="number" id="global-interval" class="save-state" value="2" min="1" step="0.5">
+                    </div>
+                    <div class="global-group">
+                        <label>Duração Exibição (s)</label>
+                        <input type="number" id="global-duration" class="save-state" value="5" min="1" step="0.5">
+                    </div>
+                    <div class="global-group">
+                        <label>Anim. Entrada (s)</label>
+                        <input type="number" id="global-anim-in" class="save-state" value="0.8" step="0.1">
+                    </div>
+                    <div class="global-group">
+                        <label>Anim. Saída (s)</label>
+                        <input type="number" id="global-anim-out" class="save-state" value="0.6" step="0.1">
+                    </div>
+                </div>
+                <div class="global-row">
+                    <div class="global-group">
+                        <label>Transição Global</label>
+                        <select id="global-transition" class="save-state">
+                            <option value="slide">Slide</option>
+                            <option value="fade">Fade</option>
+                            <option value="zoom">Zoom</option>
+                            <option value="flip">Flip</option>
+                            <option value="bounce">Bounce</option>
+                            <option value="elastic">Elastic</option>
+                        </select>
+                    </div>
+                     <div class="global-group">
+                        <label>Tema Global GC</label>
+                        <select id="global-bg-style" class="save-state">
+                            <option value="gradient1">Azul-Roxo</option>
+                            <option value="gradient2">Vermelho-Laranja</option>
+                            <option value="gradient3">Verde-Turquesa</option>
+                            <option value="gradient4">Rosa-Roxo</option>
+                            <option value="solid1">Azul Sólido</option>
+                            <option value="solid2">Sólido Escuro</option>
+                            <option value="transparent">Transparente</option>
+                        </select>
+                    </div>
+                    <div class="global-group">
+                        <label>Fonte Nome</label>
+                        <select id="global-font-name" class="save-state">
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Open Sans">Open Sans</option>
+                            <option value="Oswald">Oswald</option>
+                            <option value="Playfair Display">Playfair Display</option>
+                            <option value="Merriweather">Merriweather</option>
+                        </select>
+                    </div>
+                    <div class="global-group">
+                        <label>Fonte Info</label>
+                        <select id="global-font-info" class="save-state">
+                            <option value="Poppins">Poppins</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Open Sans">Open Sans</option>
+                            <option value="Lato">Lato</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="global-group">
+                     <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                        <input type="checkbox" id="global-typewriter" class="save-state" checked>
+                        Efeito de Digitação (Typewriter)
+                    </label>
+                </div>
+                <button class="btn-action" onclick="applyGlobalSettings()">Aplicar Global aos GCs</button>
+            </div>
+        </div>
+
+        <!-- BIBLE / HOLYRICS MODULE -->
+        <div class="control-section" style="border-color: #f59e0b;">
+            <div class="section-header" onclick="toggleSection('bible-content')">
+                <div class="section-title" style="color: #f59e0b;">📖 Holyrics Bíblia Live</div>
+                <span class="collapse-icon" id="icon-bible-content">▼</span>
+            </div>
+            <div class="section-content open" id="bible-content">
+                
+                <!-- Bible Settings -->
+                <div class="global-row" style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
+                     <div class="global-group">
+                        <label>Tema da Bíblia</label>
+                        <select id="bible-theme" class="save-state" onchange="updateBibleThemeLive()">
+                            <option value="gradient1">Azul-Roxo</option>
+                            <option value="gradient2">Vermelho-Laranja</option>
+                            <option value="gradient3">Verde-Turquesa</option>
+                            <option value="solid2">Sólido Escuro</option>
+                            <option value="transparent">Transparente</option>
+                            <option value="custom">Customizado</option>
+                        </select>
+                    </div>
+                    <div class="global-group" id="bible-custom-colors-group" style="display:none;">
+                        <label>Cores Custom (Gradiente)</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="color" id="bible-color1" class="save-state" value="#000000" onchange="updateBibleThemeLive()">
+                            <input type="color" id="bible-color2" class="save-state" value="#333333" onchange="updateBibleThemeLive()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="global-group" style="margin-bottom: 8px;">
+                    <label>URL do Holyrics</label>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="holyrics-url" class="save-state" placeholder="http://192.168.X.X:2020/view/text3" value="">
+                    </div>
+                    <div id="debug-status" class="debug-info">Aguardando início...</div>
+                </div>
+                
+                <button id="btn-monitor-holyrics" class="btn-monitor" onclick="toggleHolyricsMonitor()">
+                    <span class="status-dot" id="monitor-status"></span>
+                    <span id="monitor-text">SINCRONIZAR COM HOLYRICS</span>
+                </button>
+
+                <div id="error-box" class="error-box"></div>
+
+                <div style="margin: 10px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top:10px;">
+                    <div class="bible-control-grid">
+                        <div>
+                            <div class="global-group">
+                                <label>Versículo</label>
+                                <textarea id="bible-text" readonly placeholder="Aguardando dados..."></textarea>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="global-group">
+                                <label>Referência</label>
+                                <input type="text" id="bible-ref" readonly placeholder="...">
+                            </div>
+                            <div class="global-group">
+                                <label>Versão</label>
+                                <input type="text" id="bible-version" placeholder="(ACF)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn-show" onclick="forceShowBible()">EXIBIR</button>
+                    <button class="btn-hide" onclick="hideBible()">OCULTAR</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOWER THIRDS MODULE -->
+        <div class="control-section">
+            <div class="section-header" onclick="toggleSection('lt-content')">
+                <div class="section-title">📺 Lower Thirds (GC)</div>
+                <span class="collapse-icon" id="icon-lt-content">▼</span>
+            </div>
+            <div class="section-content open" id="lt-content">
+                <div class="panels-grid" id="panels-container">
+                    <!-- JS Generates Panels Here -->
+                </div>
+                <button class="btn-action" style="background: #8b5cf6;" onclick="addPanel()">+ Adicionar Painel</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const channel = new BroadcastChannel('obs-lower-thirds-control');
+        let panelCount = 4;
+        const logos = {};
+        
+        // Holyrics Variables
+        let holyricsInterval = null;
+        let lastBibleText = "";
+        let lastBibleRef = "";
+        let isBibleVisible = false;
+
+        // --- Initialization ---
+        function init() {
+            // Restore saved panel count first
+            const savedCount = localStorage.getItem('obs_panel_count');
+            if(savedCount) panelCount = parseInt(savedCount);
+
+            for (let i = 1; i <= panelCount; i++) createPanel(i);
+            
+            // Load all other settings
+            loadSettings();
+            updateBibleThemeLive(); // Initialize UI state
+        }
+
+        function toggleSection(id) {
+            const el = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            if (el.classList.contains('open')) {
+                el.classList.remove('open');
+                icon.classList.remove('open');
+            } else {
+                el.classList.add('open');
+                icon.classList.add('open');
+            }
+        }
+
+        // --- Persistence (Saving) Logic ---
+        function saveSettings() {
+            const elements = document.querySelectorAll('.save-state');
+            elements.forEach(el => {
+                localStorage.setItem(el.id, el.value);
+            });
+            // Also save panel inputs
+            for(let i=1; i<=panelCount; i++) {
+                const name = document.getElementById(`name-${i}`);
+                const info = document.getElementById(`info-${i}`);
+                if(name) localStorage.setItem(`name-${i}`, name.value);
+                if(info) localStorage.setItem(`info-${i}`, info.value);
+            }
+            localStorage.setItem('obs_panel_count', panelCount);
+            
+            // Save Checkbox explicitly
+            const chk = document.getElementById('global-typewriter');
+            if(chk) localStorage.setItem('global-typewriter', chk.checked);
+        }
+
+        function loadSettings() {
+            const elements = document.querySelectorAll('.save-state');
+            elements.forEach(el => {
+                const saved = localStorage.getItem(el.id);
+                if (saved !== null) {
+                    if(el.type === 'checkbox') el.checked = (saved === 'true');
+                    else el.value = saved;
+                }
+            });
+
+             // Load panel inputs
+             for(let i=1; i<=panelCount; i++) {
+                const name = document.getElementById(`name-${i}`);
+                const info = document.getElementById(`info-${i}`);
+                if(name && localStorage.getItem(`name-${i}`)) name.value = localStorage.getItem(`name-${i}`);
+                if(info && localStorage.getItem(`info-${i}`)) info.value = localStorage.getItem(`info-${i}`);
+            }
+        }
+
+        // Add auto-save listeners
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('save-state') || e.target.id.startsWith('name-') || e.target.id.startsWith('info-')) {
+                saveSettings();
+            }
+        });
+
+        // --- Bible Logic ---
+        function updateBibleThemeLive() {
+            const theme = document.getElementById('bible-theme').value;
+            const group = document.getElementById('bible-custom-colors-group');
+            group.style.display = theme === 'custom' ? 'block' : 'none';
+            
+            // If bible is visible, update theme immediately
+            if(isBibleVisible) {
+                forceShowBible();
+            }
+        }
+
+        function toggleHolyricsMonitor() {
+            const btn = document.getElementById('btn-monitor-holyrics');
+            const status = document.getElementById('monitor-status');
+            const txt = document.getElementById('monitor-text');
+            const url = document.getElementById('holyrics-url').value;
+            const errorBox = document.getElementById('error-box');
+            const debugEl = document.getElementById('debug-status');
+
+            if (holyricsInterval) {
+                // Stop
+                clearInterval(holyricsInterval);
+                holyricsInterval = null;
+                btn.classList.remove('active');
+                status.className = 'status-dot';
+                txt.textContent = "SINCRONIZAR COM HOLYRICS";
+                errorBox.style.display = 'none';
+                debugEl.textContent = "Parado.";
+            } else {
+                // Start
+                if (!url) { alert("Informe a URL do Holyrics!"); return; }
+                
+                btn.classList.add('active');
+                status.className = 'status-dot waiting';
+                txt.textContent = "MONITORANDO...";
+                errorBox.style.display = 'none';
+                debugEl.textContent = "Iniciando...";
+                
+                // Fetch immediately then interval
+                fetchHolyricsData();
+                holyricsInterval = setInterval(fetchHolyricsData, 1000); 
+            }
+        }
+
+        async function fetchHolyricsData() {
+            let userUrl = document.getElementById('holyrics-url').value.trim();
+            const status = document.getElementById('monitor-status');
+            const errorBox = document.getElementById('error-box');
+            const debugEl = document.getElementById('debug-status');
+
+            let jsonUrl = "";
+            if(userUrl.endsWith('/')) userUrl = userUrl.slice(0, -1);
+            
+            if (userUrl.includes('/view/')) {
+                const viewIndex = userUrl.lastIndexOf('/view/');
+                const baseUrl = userUrl.substring(0, viewIndex + 6); 
+                jsonUrl = baseUrl + "text.json?html_type=2";
+            } else {
+                 jsonUrl = userUrl + "/text.json?html_type=2";
+            }
+
+            try {
+                const response = await fetch(jsonUrl, { cache: "no-store" });
+                if (!response.ok) throw new Error("Erro HTTP: " + response.status);
+                const rawData = await response.json();
+                const data = rawData.map ? rawData.map : rawData; 
+
+                // Filtro: Se não for Bíblia, ocultar.
+                if (data.type !== 'BIBLE') {
+                    if (isBibleVisible) {
+                        hideBible(); 
+                    }
+                    status.className = 'status-dot waiting';
+                    debugEl.textContent = "Standby: Conteúdo é " + (data.type || "Desconhecido");
+                    document.getElementById('bible-text').value = "(Conteúdo: " + data.type + ")";
+                    document.getElementById('bible-ref').value = "";
+                    return; 
+                }
+
+                let currentText = "";
+                let currentRef = "";
+                let currentVersion = "";
+
+                if (data.header) {
+                    let tempDiv = document.createElement("div");
+                    tempDiv.innerHTML = data.header;
+                    currentRef = tempDiv.textContent.trim();
+                }
+
+                if (data.text) {
+                    let tempDiv = document.createElement("div");
+                    tempDiv.innerHTML = data.text;
+                    const spans = Array.from(tempDiv.getElementsByTagName('span'));
+                    for(let span of spans) {
+                        const content = span.textContent.trim();
+                        if(content.startsWith('(') && content.endsWith(')')) {
+                            currentVersion = content.replace(/[()]/g, '').trim();
+                            span.remove();
+                        } else if (content.toLowerCase().includes("bíblia") || content.toLowerCase().includes("copyright")) {
+                             span.remove(); 
+                        }
+                    }
+                    currentText = tempDiv.textContent.trim();
+                    if (!currentVersion) {
+                        const match = currentText.match(/\(([^)]+)\)$/);
+                        if (match) {
+                            currentVersion = match[1];
+                            currentText = currentText.replace(/\([^)]+\)$/, '').trim();
+                        }
+                    }
+                }
+
+                if (data.type === 'empty' || data.text === 'plugin offline') {
+                    currentText = "";
+                }
+
+                status.className = 'status-dot connected';
+                errorBox.style.display = 'none';
+                debugEl.textContent = "Exibindo Bíblia: " + currentRef;
+
+                updateBibleDisplay(currentText, currentRef, currentVersion);
+
+            } catch (error) {
+                console.error("Holyrics Fetch Error:", error);
+                status.className = 'status-dot error';
+                debugEl.textContent = "Erro de conexão.";
+            }
+        }
+
+        function updateBibleDisplay(currentText, currentRef, currentVersion) {
+            document.getElementById('bible-text').value = currentText || "";
+            document.getElementById('bible-ref').value = currentRef || "";
+            if(currentVersion) document.getElementById('bible-version').value = currentVersion;
+
+            if (currentText !== lastBibleText || currentRef !== lastBibleRef) {
+                lastBibleText = currentText;
+                lastBibleRef = currentRef;
+
+                if (currentText && currentText.length > 0) {
+                    showBibleInternal(currentText, currentRef, currentVersion);
+                } else {
+                    if (isBibleVisible) {
+                        hideBible();
+                    }
+                }
+            }
+        }
+
+        function showBibleInternal(text, ref, ver) {
+            const version = ver || document.getElementById('bible-version').value;
+            // Pega o tema diretamente do select da Bíblia
+            const theme = document.getElementById('bible-theme').value;
+            const c1 = document.getElementById('bible-color1').value;
+            const c2 = document.getElementById('bible-color2').value;
+            
+            channel.postMessage({
+                action: 'show_bible',
+                text: text,
+                reference: ref,
+                version: version,
+                theme: theme,
+                customColors: theme === 'custom' ? [c1, c2] : null
+            });
+            isBibleVisible = true;
+        }
+
+        function forceShowBible() {
+            const text = document.getElementById('bible-text').value;
+            const ref = document.getElementById('bible-ref').value;
+            const ver = document.getElementById('bible-version').value;
+            if(text) showBibleInternal(text, ref, ver);
+        }
+
+        function hideBible() {
+            channel.postMessage({ action: 'hide_bible' });
+            isBibleVisible = false;
+        }
+
+
+        // --- Lower Thirds Functions ---
+        function createPanel(id) {
+            const container = document.getElementById('panels-container');
+            const panel = document.createElement('div');
+            panel.className = 'lower-third-panel';
+            panel.id = `panel-${id}`;
+            panel.innerHTML = `
+                <div class="section-header" style="border:none; padding:0; margin-bottom:5px;">
+                    <span class="section-title" style="font-size:12px; color:#fff;">
+                        <span class="status-indicator status-inactive" id="status-${id}"></span> GC ${id}
+                    </span>
+                    <input type="checkbox" id="toggle-${id}" checked>
+                </div>
+                <div class="global-group">
+                    <label>Nome</label>
+                    <input type="text" id="name-${id}" placeholder="Nome">
+                </div>
+                <div class="global-group">
+                    <label>Título/Cargo</label>
+                    <input type="text" id="info-${id}" placeholder="Título">
+                </div>
+                <div class="button-group">
+                    <button class="btn-show" onclick="showLowerThird(${id})">Exibir</button>
+                    <button class="btn-hide" onclick="hideLowerThird(${id})">Ocultar</button>
+                    <button class="btn-clear" onclick="clearFields(${id})">Limpar</button>
+                </div>
+                <div class="settings-toggle" onclick="togglePanelSettings(${id})">
+                    <span>⚙️ Configs (Logo/Fonte)</span>
+                </div>
+                <div class="settings-content" id="settings-${id}">
+                    <div class="global-group">
+                        <label>Logo</label>
+                        <input type="file" id="file-${id}" accept="image/*" onchange="handleFileSelect(this, ${id})">
+                        <img id="preview-${id}" class="logo-preview" />
+                        <button class="btn-clear" style="padding:2px; font-size:9px; margin-top:2px;" onclick="clearLogo(${id})">Remover Logo</button>
+                    </div>
+                     <div class="global-row">
+                        <div class="global-group"><label>Fonte Nome</label><select id="font-name-${id}" class="save-state">${getFontOptions()}</select></div>
+                        <div class="global-group"><label>Fonte Info</label><select id="font-info-${id}" class="save-state">${getFontOptions('Poppins')}</select></div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(panel);
+            
+            const newInputs = panel.querySelectorAll('input, select');
+            newInputs.forEach(el => {
+                el.addEventListener('input', saveSettings);
+            });
+        }
+
+        function getFontOptions(selected = 'Montserrat') {
+            const fonts = ['Montserrat', 'Poppins', 'Roboto', 'Open Sans', 'Lato', 'Oswald', 'Playfair Display', 'Merriweather'];
+            return fonts.map(f => `<option value="${f}" ${f === selected ? 'selected' : ''}>${f}</option>`).join('');
+        }
+
+        function togglePanelSettings(id) {
+            document.getElementById(`settings-${id}`).classList.toggle('open');
+        }
+
+        function handleFileSelect(input, id) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    logos[id] = e.target.result;
+                    const p = document.getElementById(`preview-${id}`);
+                    p.src = e.target.result; p.style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function clearLogo(id) {
+            delete logos[id];
+            document.getElementById(`file-${id}`).value = '';
+            document.getElementById(`preview-${id}`).style.display = 'none';
+        }
+        function clearFields(id) {
+            document.getElementById(`name-${id}`).value = '';
+            document.getElementById(`info-${id}`).value = '';
+            saveSettings();
+        }
+
+        function showLowerThird(id) {
+            const name = document.getElementById(`name-${id}`).value;
+            const info = document.getElementById(`info-${id}`).value;
+            if(!name || !info) return;
+
+            // Pega valores do próprio painel se definidos, ou globais
+            const fontNamePanel = document.getElementById(`font-name-${id}`).value;
+            const fontInfoPanel = document.getElementById(`font-info-${id}`).value;
+
+            // Valores Globais (se quiser forçar, poderia usar direto, mas vamos manter a flexibilidade)
+            // Aqui estamos pegando as variáveis globais para enviar também
+            const transition = document.getElementById('global-transition').value;
+            const style = document.getElementById('global-bg-style').value;
+            const animIn = parseFloat(document.getElementById('global-anim-in').value);
+            const animOut = parseFloat(document.getElementById('global-anim-out').value);
+            const duration = parseFloat(document.getElementById('global-duration').value);
+            const typewriter = document.getElementById('global-typewriter').checked;
+
+            channel.postMessage({
+                action: 'show', id: id, name: name, info: info,
+                transition: transition, background: style,
+                fontName: fontNamePanel, fontInfo: fontInfoPanel,
+                logo: logos[id] || null,
+                duration: duration, animIn: animIn, animOut: animOut, typewriter: typewriter
+            });
+            document.getElementById(`status-${id}`).classList.remove('status-inactive');
+            document.getElementById(`status-${id}`).classList.add('status-active');
+        }
+
+        function hideLowerThird(id) {
+            // Pega animOut global para usar na saída
+            const animOut = parseFloat(document.getElementById('global-anim-out').value);
+            channel.postMessage({ action: 'hide', id: id, animOut: animOut });
+            document.getElementById(`status-${id}`).classList.remove('status-active');
+            document.getElementById(`status-${id}`).classList.add('status-inactive');
+        }
+
+        function addPanel() { 
+            panelCount++; 
+            createPanel(panelCount);
+            saveSettings();
+        }
+        function applyGlobalSettings() { 
+            const fontName = document.getElementById('global-font-name').value;
+            const fontInfo = document.getElementById('global-font-info').value;
+            
+            // Aplica fonte global a todos os painéis existentes
+            for(let i=1; i<=panelCount; i++) {
+                const fName = document.getElementById(`font-name-${i}`);
+                const fInfo = document.getElementById(`font-info-${i}`);
+                if(fName) fName.value = fontName;
+                if(fInfo) fInfo.value = fontInfo;
+            }
+            saveSettings();
+            alert('Configurações globais (incluindo fontes) aplicadas.'); 
+        }
+        
+        init();
+    </script>
+</body>
+</html>

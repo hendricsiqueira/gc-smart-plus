@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Bible Source</title>
+    <!-- Carregando Fontes -->
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Merriweather:ital,wght@0,300;0,700;1,300&family=Montserrat:wght@400;700&family=Open+Sans:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { overflow: hidden; background: transparent; font-family: 'Poppins', sans-serif; }
+
+        /* Container Principal */
+        #bible-container {
+            position: fixed;
+            bottom: 60px; /* Margem inferior */
+            left: 50%;
+            transform: translateX(-50%) translateY(100px); /* Inicialmente escondido abaixo */
+            width: 85%;
+            max-width: 1000px;
+            opacity: 0;
+            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 15px 30px;
+            border-radius: 10px;
+            
+            /* Background Padrão (Fallback) - Será sobrescrito pelos temas abaixo */
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.9), rgba(40, 40, 40, 0.95));
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        /* Estados de Animação */
+        #bible-container.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        #bible-container.hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(50px);
+        }
+
+        /* Estilização do Texto */
+        .bible-text {
+            font-size: 20px;
+            font-weight: 500;
+            color: #ffffff;
+            margin-bottom: 8px;
+            line-height: 1.35;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            font-family: 'Merriweather', serif;
+        }
+
+        .bible-meta {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            border-top: 1px solid rgba(255,255,255,0.15);
+            padding-top: 6px;
+        }
+
+        .bible-ref {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f59e0b; /* Amarelo ouro */
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .bible-version {
+            font-size: 9px;
+            color: rgba(255,255,255,0.6);
+            background: rgba(255,255,255,0.1);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        /* Themes (Classes adicionadas via JS) */
+        /* Nota: Usamos #bible-container.classe para garantir prioridade sobre o estilo padrão */
+        #bible-container.theme-gradient1 { background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(147, 51, 234, 0.95)); }
+        #bible-container.theme-gradient2 { background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(249, 115, 22, 0.95)); }
+        #bible-container.theme-gradient3 { background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(20, 184, 166, 0.95)); }
+        #bible-container.theme-solid2 { background: #1e1e1e; }
+        #bible-container.theme-transparent { background: transparent; text-shadow: 0 0 10px rgba(0,0,0,1); border: none; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+    <div id="bible-container">
+        <div class="bible-text" id="verse-text">
+            <!-- Text goes here -->
+        </div>
+        <div class="bible-meta">
+            <span class="bible-ref" id="verse-ref"></span>
+            <span class="bible-version" id="verse-version"></span>
+        </div>
+    </div>
+
+    <script>
+        const channel = new BroadcastChannel('obs-lower-thirds-control');
+        const container = document.getElementById('bible-container');
+        const textEl = document.getElementById('verse-text');
+        const refEl = document.getElementById('verse-ref');
+        const verEl = document.getElementById('verse-version');
+
+        channel.onmessage = function (event) {
+            const data = event.data;
+            
+            if (data.action === 'show_bible') {
+                showBible(data);
+            } else if (data.action === 'hide_bible') {
+                hideBible();
+            }
+        };
+
+        function showBible(data) {
+            // Reset styles
+            container.className = ''; 
+            container.style.background = ''; // Clear inline styles
+            
+            // Set Content
+            textEl.textContent = data.text;
+            refEl.textContent = data.reference;
+            verEl.textContent = data.version || '';
+            
+            // Toggle version visibility
+            verEl.style.display = data.version ? 'inline-block' : 'none';
+
+            // Apply Theme
+            if (data.theme === 'custom' && data.customColors) {
+                // Apply custom gradient
+                const [c1, c2] = data.customColors;
+                container.style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+            } else if (data.theme && data.theme !== 'custom') {
+                container.classList.add(`theme-${data.theme}`);
+            } else {
+                container.classList.add('theme-gradient1'); // Default
+            }
+
+            // Animate In
+            requestAnimationFrame(() => {
+                container.classList.add('visible');
+            });
+        }
+
+        function hideBible() {
+            container.classList.remove('visible');
+            container.classList.add('hidden');
+        }
+
+        console.log('OBS Bible Source Ready');
+    </script>
+</body>
+</html>
