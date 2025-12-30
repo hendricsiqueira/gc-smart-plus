@@ -48,6 +48,7 @@
         .lower-third-panel {
             background: rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 10px;
             border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
         }
 
         /* Forms */
@@ -81,6 +82,12 @@
         .btn-monitor { background: #4b5563; color: #aaa; width: 100%; margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 5px;}
         .btn-monitor.active { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; animation: pulse-border 2s infinite; }
         
+        .btn-delete {
+            background: transparent; color: #ef4444; border: 1px solid #ef4444;
+            padding: 2px 6px; font-size: 10px; margin-left: auto;
+        }
+        .btn-delete:hover { background: #ef4444; color: white; }
+
         button:hover { opacity: 0.9; transform: translateY(-1px); }
         button:active { transform: translateY(0); }
         
@@ -191,11 +198,11 @@
                 </div>
                 <div class="global-group">
                      <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
-                        <input type="checkbox" id="global-typewriter" class="save-state" checked>
+                        <input type="checkbox" id="global-typewriter" class="save-state">
                         Efeito de Digitação (Typewriter)
                     </label>
                 </div>
-                <button class="btn-action" onclick="applyGlobalSettings()">Aplicar Global aos GCs</button>
+                <button class="btn-action" onclick="applyGlobalSettings()">Aplicar Global a Todos os GCs</button>
             </div>
         </div>
 
@@ -291,8 +298,13 @@
     <script>
         const channel = new BroadcastChannel('obs-lower-thirds-control');
         let panelCount = 4;
+        let activePanels = []; // Keep track of active panels ids for persistence
         const logos = {};
+        const timers = {}; // Store timers globally
         
+        // --- Single Active Logic ---
+        let currentlyActive = null;
+
         // Holyrics Variables
         let holyricsInterval = null;
         let lastBibleText = "";
@@ -301,11 +313,21 @@
 
         // --- Initialization ---
         function init() {
-            // Restore saved panel count first
-            const savedCount = localStorage.getItem('obs_panel_count');
-            if(savedCount) panelCount = parseInt(savedCount);
+            // Restore saved active panels or default to 4
+            const savedPanels = localStorage.getItem('obs_active_panels');
+            if (savedPanels) {
+                activePanels = JSON.parse(savedPanels);
+            } else {
+                activePanels = [1, 2, 3, 4]; // Default
+            }
+            
+            // Generate highest ID to avoid collisions
+            let maxId = 0;
+            if(activePanels.length > 0) maxId = Math.max(...activePanels);
+            panelCount = maxId;
 
-            for (let i = 1; i <= panelCount; i++) createPanel(i);
+            // Create panels
+            activePanels.forEach(id => createPanel(id));
             
             // Load all other settings
             loadSettings();
@@ -331,13 +353,36 @@
                 localStorage.setItem(el.id, el.value);
             });
             // Also save panel inputs
-            for(let i=1; i<=panelCount; i++) {
+            activePanels.forEach(i => {
                 const name = document.getElementById(`name-${i}`);
                 const info = document.getElementById(`info-${i}`);
+                
+                // Salvar Configs Individuais também
+                const trans = document.getElementById(`transition-${i}`);
+                const dur = document.getElementById(`duration-${i}`);
+                const theme = document.getElementById(`bg-style-${i}`);
+                const fName = document.getElementById(`font-name-${i}`);
+                const fInfo = document.getElementById(`font-info-${i}`);
+                
+                // Salvar Cores Custom do GC
+                const c1 = document.getElementById(`color1-${i}`);
+                const c2 = document.getElementById(`color2-${i}`);
+                
+                // Salvar Typewriter Individual
+                const tw = document.getElementById(`typewriter-${i}`);
+
                 if(name) localStorage.setItem(`name-${i}`, name.value);
                 if(info) localStorage.setItem(`info-${i}`, info.value);
-            }
-            localStorage.setItem('obs_panel_count', panelCount);
+                if(trans) localStorage.setItem(`transition-${i}`, trans.value);
+                if(dur) localStorage.setItem(`duration-${i}`, dur.value);
+                if(theme) localStorage.setItem(`bg-style-${i}`, theme.value);
+                if(fName) localStorage.setItem(`font-name-${i}`, fName.value);
+                if(fInfo) localStorage.setItem(`font-info-${i}`, fInfo.value);
+                if(c1) localStorage.setItem(`color1-${i}`, c1.value);
+                if(c2) localStorage.setItem(`color2-${i}`, c2.value);
+                if(tw) localStorage.setItem(`typewriter-${i}`, tw.checked);
+            });
+            localStorage.setItem('obs_active_panels', JSON.stringify(activePanels));
             
             // Save Checkbox explicitly
             const chk = document.getElementById('global-typewriter');
@@ -354,18 +399,36 @@
                 }
             });
 
-             // Load panel inputs
-             for(let i=1; i<=panelCount; i++) {
-                const name = document.getElementById(`name-${i}`);
-                const info = document.getElementById(`info-${i}`);
-                if(name && localStorage.getItem(`name-${i}`)) name.value = localStorage.getItem(`name-${i}`);
-                if(info && localStorage.getItem(`info-${i}`)) info.value = localStorage.getItem(`info-${i}`);
-            }
+             // Load panel inputs and specific settings
+             activePanels.forEach(i => {
+                loadVal(`name-${i}`);
+                loadVal(`info-${i}`);
+                loadVal(`transition-${i}`);
+                loadVal(`duration-${i}`);
+                loadVal(`bg-style-${i}`);
+                loadVal(`font-name-${i}`);
+                loadVal(`font-info-${i}`);
+                loadVal(`color1-${i}`);
+                loadVal(`color2-${i}`);
+                
+                const tw = document.getElementById(`typewriter-${i}`);
+                const savedTw = localStorage.getItem(`typewriter-${i}`);
+                if(tw && savedTw !== null) tw.checked = (savedTw === 'true');
+                
+                // Trigger visibility for custom colors on load
+                toggleCustomColor(i);
+            });
+        }
+
+        function loadVal(id) {
+            const el = document.getElementById(id);
+            const val = localStorage.getItem(id);
+            if(el && val) el.value = val;
         }
 
         // Add auto-save listeners
         document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('save-state') || e.target.id.startsWith('name-') || e.target.id.startsWith('info-')) {
+            if (e.target.classList.contains('save-state') || e.target.closest('.lower-third-panel')) {
                 saveSettings();
             }
         });
@@ -561,7 +624,7 @@
                     <span class="section-title" style="font-size:12px; color:#fff;">
                         <span class="status-indicator status-inactive" id="status-${id}"></span> GC ${id}
                     </span>
-                    <input type="checkbox" id="toggle-${id}" checked>
+                    <button class="btn-delete" onclick="deletePanel(${id})">🗑️</button>
                 </div>
                 <div class="global-group">
                     <label>Nome</label>
@@ -577,9 +640,49 @@
                     <button class="btn-clear" onclick="clearFields(${id})">Limpar</button>
                 </div>
                 <div class="settings-toggle" onclick="togglePanelSettings(${id})">
-                    <span>⚙️ Configs (Logo/Fonte)</span>
+                    <span>⚙️ Ajustes Individuais</span>
                 </div>
                 <div class="settings-content" id="settings-${id}">
+                    <div class="global-row" style="margin-top:5px;">
+                        <div class="global-group">
+                            <label>Transição</label>
+                            <select id="transition-${id}">
+                                <option value="">(Global)</option>
+                                <option value="slide">Slide</option>
+                                <option value="fade">Fade</option>
+                                <option value="zoom">Zoom</option>
+                                <option value="flip">Flip</option>
+                            </select>
+                        </div>
+                        <div class="global-group">
+                            <label>Duração</label>
+                            <input type="number" id="duration-${id}" placeholder="(Global)" step="0.5">
+                        </div>
+                    </div>
+                    <div class="global-group">
+                        <label>Tema Específico</label>
+                        <select id="bg-style-${id}" onchange="toggleCustomColor(${id})">
+                            <option value="">(Usar Global)</option>
+                            <option value="gradient1">Azul-Roxo</option>
+                            <option value="gradient2">Vermelho-Laranja</option>
+                            <option value="gradient3">Verde-Turquesa</option>
+                            <option value="solid2">Sólido Escuro</option>
+                            <option value="custom">Customizado</option>
+                        </select>
+                    </div>
+                    <div class="global-group" id="custom-color-group-${id}" style="display: none;">
+                        <label>Cores Customizadas (Gradiente)</label>
+                        <div style="display:flex; gap:5px;">
+                            <input type="color" id="color1-${id}" value="#3b82f6">
+                            <input type="color" id="color2-${id}" value="#9333ea">
+                        </div>
+                    </div>
+                    <div class="global-group">
+                        <label style="display:flex; align-items:center; gap:5px; cursor:pointer;">
+                            <input type="checkbox" id="typewriter-${id}">
+                            Efeito de Digitação
+                        </label>
+                    </div>
                     <div class="global-group">
                         <label>Logo</label>
                         <input type="file" id="file-${id}" accept="image/*" onchange="handleFileSelect(this, ${id})">
@@ -587,10 +690,11 @@
                         <button class="btn-clear" style="padding:2px; font-size:9px; margin-top:2px;" onclick="clearLogo(${id})">Remover Logo</button>
                     </div>
                      <div class="global-row">
-                        <div class="global-group"><label>Fonte Nome</label><select id="font-name-${id}" class="save-state">${getFontOptions()}</select></div>
-                        <div class="global-group"><label>Fonte Info</label><select id="font-info-${id}" class="save-state">${getFontOptions('Poppins')}</select></div>
+                        <div class="global-group"><label>Fonte Nome</label><select id="font-name-${id}">${getFontOptions()}</select></div>
+                        <div class="global-group"><label>Fonte Info</label><select id="font-info-${id}">${getFontOptions('Poppins')}</select></div>
                     </div>
                 </div>
+                <div id="timer-${id}" style="text-align: center; margin-top: 5px; font-size: 11px; color: #fbbf24; height: 15px;"></div>
             `;
             container.appendChild(panel);
             
@@ -598,6 +702,14 @@
             newInputs.forEach(el => {
                 el.addEventListener('input', saveSettings);
             });
+        }
+
+        function toggleCustomColor(id) {
+            const style = document.getElementById(`bg-style-${id}`).value;
+            const customGroup = document.getElementById(`custom-color-group-${id}`);
+            if(customGroup) {
+                customGroup.style.display = style === 'custom' ? 'block' : 'none';
+            }
         }
 
         function getFontOptions(selected = 'Montserrat') {
@@ -631,61 +743,169 @@
             saveSettings();
         }
 
+        function deletePanel(id) {
+            if (confirm('Tem certeza que deseja excluir este painel?')) {
+                const panel = document.getElementById(`panel-${id}`);
+                if (panel) {
+                    panel.remove();
+                    // Remove from activePanels array
+                    activePanels = activePanels.filter(panelId => panelId !== id);
+                    
+                    // Remove from localStorage
+                    const keysToRemove = [
+                        `name-${id}`, `info-${id}`, `transition-${id}`, `duration-${id}`,
+                        `bg-style-${id}`, `font-name-${id}`, `font-info-${id}`,
+                        `color1-${id}`, `color2-${id}`, `typewriter-${id}`
+                    ];
+                    keysToRemove.forEach(key => localStorage.removeItem(key));
+                    
+                    saveSettings();
+                }
+            }
+        }
+
+        function getBackground(id, style) {
+            if (style === 'custom') {
+                const c1 = document.getElementById(`color1-${id}`).value;
+                const c2 = document.getElementById(`color2-${id}`).value;
+                return `linear-gradient(135deg, ${c1}, ${c2})`;
+            }
+            const transparency = 0.95; // Default transparency
+            const gradientMap = {
+                gradient1: [[59, 130, 246], [147, 51, 234]],
+                gradient2: [[239, 68, 68], [249, 115, 22]],
+                gradient3: [[16, 185, 129], [20, 184, 166]],
+                gradient4: [[236, 72, 153], [168, 85, 247]]
+            };
+
+            if (gradientMap[style]) {
+                const colors = gradientMap[style];
+                return `linear-gradient(135deg, rgba(${colors[0][0]}, ${colors[0][1]}, ${colors[0][2]}, ${transparency}), rgba(${colors[1][0]}, ${colors[1][1]}, ${colors[1][2]}, ${transparency}))`;
+            }
+
+            if (style === 'solid1') return `rgba(59, 130, 246, ${transparency})`;
+            if (style === 'solid2') return `rgba(30, 30, 30, ${transparency})`;
+            
+            // Se for global e vazio, ou default
+            if(style === "") return ""; // Deixa o source decidir ou usa global logic
+
+            return `rgba(59, 130, 246, ${transparency})`;
+        }
+
         function showLowerThird(id) {
             const name = document.getElementById(`name-${id}`).value;
             const info = document.getElementById(`info-${id}`).value;
             if(!name || !info) return;
 
+            // --- Lógica Single Active ---
+            if (currentlyActive !== null && currentlyActive !== id) {
+                hideLowerThird(currentlyActive);
+            }
+            currentlyActive = id;
+
             // Pega valores do próprio painel se definidos, ou globais
+            const transLocal = document.getElementById(`transition-${id}`).value;
+            const durLocal = document.getElementById(`duration-${id}`).value;
+            const themeLocal = document.getElementById(`bg-style-${id}`).value;
             const fontNamePanel = document.getElementById(`font-name-${id}`).value;
             const fontInfoPanel = document.getElementById(`font-info-${id}`).value;
+            const typewriterLocal = document.getElementById(`typewriter-${id}`).checked;
 
-            // Valores Globais (se quiser forçar, poderia usar direto, mas vamos manter a flexibilidade)
-            // Aqui estamos pegando as variáveis globais para enviar também
-            const transition = document.getElementById('global-transition').value;
-            const style = document.getElementById('global-bg-style').value;
+            // Valores Globais (Defaults)
+            const transGlobal = document.getElementById('global-transition').value;
+            const durGlobal = document.getElementById('global-duration').value;
+            const themeGlobal = document.getElementById('global-bg-style').value;
+            
             const animIn = parseFloat(document.getElementById('global-anim-in').value);
             const animOut = parseFloat(document.getElementById('global-anim-out').value);
-            const duration = parseFloat(document.getElementById('global-duration').value);
-            const typewriter = document.getElementById('global-typewriter').checked;
+            
+            // Lógica de Prioridade: Individual > Global
+            const finalTransition = transLocal || transGlobal;
+            const finalDuration = durLocal ? parseFloat(durLocal) : parseFloat(durGlobal);
+            
+            // Lógica de Background (Construir a string CSS)
+            let finalBackground = "";
+            if (themeLocal && themeLocal !== "") {
+                finalBackground = getBackground(id, themeLocal);
+            } else {
+                // Usa função simulada para global
+                finalBackground = getBackground(id, themeGlobal); 
+            }
 
             channel.postMessage({
                 action: 'show', id: id, name: name, info: info,
-                transition: transition, background: style,
+                transition: finalTransition, background: finalBackground,
                 fontName: fontNamePanel, fontInfo: fontInfoPanel,
                 logo: logos[id] || null,
-                duration: duration, animIn: animIn, animOut: animOut, typewriter: typewriter
+                duration: finalDuration, animIn: animIn, animOut: animOut, typewriter: typewriterLocal
             });
             document.getElementById(`status-${id}`).classList.remove('status-inactive');
             document.getElementById(`status-${id}`).classList.add('status-active');
+
+            // --- Lógica do Temporizador ---
+            let timeLeft = finalDuration;
+            const timerEl = document.getElementById(`timer-${id}`);
+            if(timerEl) timerEl.textContent = `⏱️ ${timeLeft.toFixed(1)}s`;
+
+            if (timers[id]) clearInterval(timers[id]);
+
+            timers[id] = setInterval(() => {
+                timeLeft -= 0.1;
+                if (timeLeft > 0) {
+                    if(timerEl) timerEl.textContent = `⏱️ ${timeLeft.toFixed(1)}s`;
+                } else {
+                    clearInterval(timers[id]);
+                    delete timers[id]; // Limpa referência
+                    hideLowerThird(id);
+                    if(timerEl) timerEl.textContent = '';
+                }
+            }, 100);
         }
 
         function hideLowerThird(id) {
+            // Limpa o timer se existir (importante para cancelamento manual)
+            if (timers[id]) {
+                clearInterval(timers[id]);
+                delete timers[id];
+                const timerEl = document.getElementById(`timer-${id}`);
+                if(timerEl) timerEl.textContent = '';
+            }
+
             // Pega animOut global para usar na saída
             const animOut = parseFloat(document.getElementById('global-anim-out').value);
             channel.postMessage({ action: 'hide', id: id, animOut: animOut });
             document.getElementById(`status-${id}`).classList.remove('status-active');
             document.getElementById(`status-${id}`).classList.add('status-inactive');
+            
+            if (currentlyActive === id) {
+                currentlyActive = null;
+            }
         }
 
         function addPanel() { 
             panelCount++; 
+            activePanels.push(panelCount);
             createPanel(panelCount);
             saveSettings();
         }
+        
         function applyGlobalSettings() { 
             const fontName = document.getElementById('global-font-name').value;
             const fontInfo = document.getElementById('global-font-info').value;
+            const globalTypewriter = document.getElementById('global-typewriter').checked;
             
-            // Aplica fonte global a todos os painéis existentes
-            for(let i=1; i<=panelCount; i++) {
+            // Aplica fonte global e typewriter global a todos os painéis existentes
+            activePanels.forEach(i => {
                 const fName = document.getElementById(`font-name-${i}`);
                 const fInfo = document.getElementById(`font-info-${i}`);
+                const tw = document.getElementById(`typewriter-${i}`);
+                
                 if(fName) fName.value = fontName;
                 if(fInfo) fInfo.value = fontInfo;
-            }
+                if(tw) tw.checked = globalTypewriter;
+            });
             saveSettings();
-            alert('Configurações globais (incluindo fontes) aplicadas.'); 
+            alert('Configurações globais (incluindo fontes e typewriter) aplicadas.'); 
         }
         
         init();
