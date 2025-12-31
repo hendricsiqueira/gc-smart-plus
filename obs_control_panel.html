@@ -309,7 +309,7 @@
         let holyricsInterval = null;
         let lastBibleText = "";
         let lastBibleRef = "";
-        let isBibleVisible = false;
+        let isHolyricsVisible = false; // Controls if we are "LIVE" or not
 
         // --- Initialization ---
         function init() {
@@ -440,7 +440,7 @@
             group.style.display = theme === 'custom' ? 'block' : 'none';
             
             // If bible is visible, update theme immediately
-            if(isBibleVisible) {
+            if(isHolyricsVisible) {
                 forceShowBible();
             }
         }
@@ -503,8 +503,12 @@
 
                 // Filtro: Se não for Bíblia, ocultar.
                 if (data.type !== 'BIBLE') {
-                    if (isBibleVisible) {
-                        hideBible(); 
+                    // Se não for bíblia, não faz nada automaticamente além de atualizar o status
+                    // Se estava exibindo, pode-se decidir esconder ou manter o último
+                    // Aqui decidimos esconder se estava em modo live
+                    if (isHolyricsVisible) {
+                        // Opcional: Se quiser esconder quando sair da Bíblia automaticamente
+                        // hideBible(); 
                     }
                     status.className = 'status-dot waiting';
                     debugEl.textContent = "Standby: Conteúdo é " + (data.type || "Desconhecido");
@@ -572,11 +576,15 @@
                 lastBibleText = currentText;
                 lastBibleRef = currentRef;
 
-                if (currentText && currentText.length > 0) {
-                    showBibleInternal(currentText, currentRef, currentVersion);
-                } else {
-                    if (isBibleVisible) {
-                        hideBible();
+                // --- LÓGICA MESTRE: Só atualiza tela se o modo estiver ATIVO (Exibir clicado) ---
+                if (isHolyricsVisible) {
+                    if (currentText && currentText.length > 0) {
+                        showBibleInternal(currentText, currentRef, currentVersion);
+                    } else {
+                        // Se o texto ficou vazio, manda sinal de esconder visualmente
+                        // mas NÃO desativa o modo Live (isHolyricsVisible continua true)
+                        // assim quando vier o próximo slide, ele mostra.
+                        channel.postMessage({ action: 'hide_bible' });
                     }
                 }
             }
@@ -597,19 +605,26 @@
                 theme: theme,
                 customColors: theme === 'custom' ? [c1, c2] : null
             });
-            isBibleVisible = true;
+            // Nota: Não setamos isHolyricsVisible=true aqui pois é uma função interna
+            // quem define se está live é o botão Exibir/Ocultar
         }
 
         function forceShowBible() {
             const text = document.getElementById('bible-text').value;
             const ref = document.getElementById('bible-ref').value;
             const ver = document.getElementById('bible-version').value;
+            
+            // Ativa o modo LIVE
+            isHolyricsVisible = true;
+            
             if(text) showBibleInternal(text, ref, ver);
         }
 
         function hideBible() {
+            // Desativa o modo LIVE
+            isHolyricsVisible = false;
+            
             channel.postMessage({ action: 'hide_bible' });
-            isBibleVisible = false;
         }
 
 
